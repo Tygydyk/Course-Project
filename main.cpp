@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <list>
+#include <vector>
 
 using namespace sf;
 
@@ -93,10 +94,10 @@ public:
 		for (int i = y / 60; i < (y + hight) / 60; i++) //проходимся по элементам карты
 			for (int j = x / 60; j<(x + width) / 60; j++)
 			{
-				if (TileMap[i][j] == '0') //если элемент наш тайл земли
+				if (TileMap[i][j] == '0') //если элемент наш тайлик земли? то
 				{
-					if (Dy>0) { y = i * 60 - hight;  dy = 0; } //по Y вниз=>идем в пол
-					if (Dy<0) { y = i * 60 + 60;  dy = 0; } //столкновение с верхними краями карты
+					if (Dy>0) { y = i * 60 - hight;  dy = 0; } //по Y вниз=>идем в пол(стоим на месте) или падаем. В этот момент надо вытолкнуть персонажа и поставить его на землю, при этом говорим что мы на земле тем самым снова можем прыгать
+					if (Dy<0) { y = i * 60 + 60;  dy = 0; } //столкновение с верхними краями карты(может и не пригодиться)
 					if (Dx>0) { x = j * 60 - width; } //с правым краем карты
 					if (Dx<0) { x = j * 60 + 60; } // с левым краем карты
 				}
@@ -134,12 +135,25 @@ public:
 					{
 						x = j * 60 - width;
 					}
-					if (dx < 0)
+					if (dx<0)
 					{
 						x = j * 60 + 60;
 					}
 				}
 			}
+	}
+
+	void foo()
+	{
+		if (dx>0)
+		{
+			sprite.scale(-1, 1);
+		}
+		if (dx<0)
+		{
+			sprite.scale(1, -1);
+		}
+
 	}
 
 };
@@ -149,37 +163,64 @@ public:
 class Enemy : public Entity {
 public:
 	Enemy(Image & image, float X, float Y, int Width, int Hight, String Name) : Entity(image, X, Y, Width, Hight, Name) {
-		if (name == "EasyEnemy") {
 			dx = 0.1;
 			sprite.setTextureRect(IntRect(0, 185, width, hight));
-		}
+		
 	}
 
-
-	void checkCollisionWithMap(float Dx, float Dy) //ф ция для столкновений с картой
+	void checkCollisionWithMap(float Dx, float Dy) // функция взаимодействия с картой
 	{
 		for (int i = y / 60; i < (y + hight) / 60; i++) 
 			for (int j = x / 60; j<(x + width) / 60; j++)
 			{
-				if (TileMap[i][j] == '0') 
+				if (TileMap[i][j] == '0')
 				{
-					if (Dy>0) { y = i * 60 - hight;  dy = 0; } 
-					if (Dy<0) { y = i * 60 + 60;  dy = 0; } 
-					if (Dx>0) { x = j * 60 - width; } 
-					if (Dx<0) { x = j * 60 + 60; } 
+					if (Dy>0) { y = i * 60 - hight; } 
+					if (Dy<0) { y = i * 60 + 60; } 
+					if (Dx>0) { x = j * 60 - width;  dx = -0.1; sprite.scale(-1, 1);}
+					if (Dx<0) { x = j * 60 + 60; dx = 0.1; sprite.scale(-1, 1);}
 				}
 			}
 	}
 
 	void update(float time)
 	{
-		if (name == "EasyEnemy") 
-		{
-			checkCollisionWithMap(dx, 0); //обрабатываем столкновение по Х
 			x += dx * time;
+			checkCollisionWithMap(dx, 0); //обрабатываем столкновение по Х
+			y += dy * time;
+			checkCollisionWithMap(0, dy);
+
 			sprite.setPosition(x + width / 2, y + hight / 2); //задаем позицию спрайта в место его центра
 			if (health <= 0) { life = false; }
-		}
+		if (life) { getPlayerCoordinateforView(x, y); }
+	}
+
+	void interactionWithMap()
+	{
+
+		for (int i = y / 60; i < (y + hight) / 60; i++)
+			for (int j = x / 60; j<(x + width) / 60; j++)
+			{
+				if (TileMap[i][j] == '0')
+				{
+					if (dy>0)
+					{
+						y = i * 60 - hight;
+					}
+					if (dy<0)
+					{
+						y = i * 60 + 60;
+					}
+					if (dx>0)
+					{
+						x = j * 60 - width;
+					}
+					if (dx < 0)
+					{
+						x = j * 60 + 60;
+					}
+				}
+			}
 	}
 
 };
@@ -207,30 +248,23 @@ int main()
 	s_map.setTexture(map);
 
 
-	std::list<Entity*> entities;
-	std::list<Entity*>::iterator it;
+	//std::list<Entity*> entities;
+	//std::list<Entity*>::iterator it;
 
 
 	Image myTank;
 	myTank.loadFromFile("images/tank.png");
+	myTank.createMaskFromColor(Color(4, 4, 4));
 
 	Player p(myTank, 680, 350, 60, 58, "Grisha");
 
 	Image easyEnemyImage;
-	easyEnemyImage.loadFromFile("images/tank.png");
+	easyEnemyImage.loadFromFile("images/tank.png"); 
+	easyEnemyImage.createMaskFromColor(Color(4, 4, 4));
 
-	/////////////////////////////Рисуем карту/////////////////////
-	for (int i = 0; i < HEIGHT_MAP; i++)
-		for (int j = 0; j < WIDTH_MAP; j++)
-		{
-			if (TileMap[i][j] == ' ')  s_map.setTextureRect(IntRect(0, 0, 60, 60));
-			if ((TileMap[i][j] == '0')) s_map.setTextureRect(IntRect(64, 0, 60, 60));
-			s_map.setPosition(j * 60, i * 60);
-
-			window.draw(s_map);
-		}
+	Enemy e(easyEnemyImage, 300, 200, 60, 58, "EasyEnemy");
 	
-	int randomElementX = 0;//случайный элемент по горизонтали
+	/*int randomElementX = 0;//случайный элемент по горизонтали
 	int randomElementY = 0;//случ эл-т по вертикали
 
 		int countEnemy = 3;//количество камней 1
@@ -243,7 +277,7 @@ int main()
 				countEnemy--; //создали врага=>счетчик будет "текущий минус 1"
 				entities.push_back(new Enemy(easyEnemyImage, 1 + rand() % (WIDTH_MAP - 1), 1 + rand() % (HEIGHT_MAP - 1), 60, 58, "EasyEnemy"));
 			}
-		}
+		}*/
 
 	float currentFrame = 0;
 	Clock clock;
@@ -267,11 +301,55 @@ int main()
 		}
 
 		p.update(time);
+		e.update(time);
+
+		if (p.life) {
+			if (Keyboard::isKeyPressed(Keyboard::Left)) {
+				p.speed = 0.1;
+				currentFrame += 0.005*time;
+				if (currentFrame > 2) currentFrame -= 2;
+				p.sprite.setTextureRect(IntRect(60 * int(currentFrame), 434, 60, 58));
+			}
+
+			if (Keyboard::isKeyPressed(Keyboard::Right)) {
+				p.speed = 0.1;
+				currentFrame += 0.005*time;
+				if (currentFrame > 2) currentFrame -= 2;
+				p.sprite.setTextureRect(IntRect(60 * int(currentFrame), 310, 60, 58));
+			}
+
+			if (Keyboard::isKeyPressed(Keyboard::Up)) {
+				p.speed = 0.1;
+				currentFrame += 0.005*time;
+				if (currentFrame > 2) currentFrame -= 2;
+				p.sprite.setTextureRect(IntRect(60 * int(currentFrame), 245, 60, 58));
+			}
+
+			if (Keyboard::isKeyPressed(Keyboard::Down)) {
+				p.speed = 0.1;
+				currentFrame += 0.005*time;
+				if (currentFrame > 2) currentFrame -= 2;
+				p.sprite.setTextureRect(IntRect(60 * int(currentFrame), 368, 60, 58));
+			}
+			getPlayerCoordinateforView(p.getplayercoordinateX(), p.getplayercoordinateY());
+		}
+
+
+
 		//for (it = entities.begin(); it != entities.end(); it++) { (*it)->update(time); }
 		window.setView(view);
 		window.clear();
 
+		/////////////////////////////Рисуем карту/////////////////////
+		for (int i = 0; i < HEIGHT_MAP; i++)
+			for (int j = 0; j < WIDTH_MAP; j++)
+			{
+				if (TileMap[i][j] == ' ')  s_map.setTextureRect(IntRect(0, 0, 60, 60));
+				if ((TileMap[i][j] == '0')) s_map.setTextureRect(IntRect(64, 0, 60, 60));
+				s_map.setPosition(j * 60, i * 60);
 
+				window.draw(s_map);
+			}
 		
 		std::ostringstream playerHealthString, gameTimeString;    // объявили переменную здоровья и времени
 		playerHealthString << p.health; gameTimeString << gameTime;		//формируем строку
@@ -281,12 +359,13 @@ int main()
 		window.draw(text);//рисую этот текст
 
 		window.draw(p.sprite);
-		for (it = entities.begin(); it != entities.end(); it++) {
+		window.draw(e.sprite);
+		/*for (it = entities.begin(); it != entities.end(); it++) {
 			window.draw((*it)->sprite); //рисуем entities объекты (сейчас это только враги)
-		}
+		}*/
 
 		window.display();
 	}
 
 	return 0;
-}
+} 
